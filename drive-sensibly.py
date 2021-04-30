@@ -169,8 +169,10 @@ def change_item_owner(service, item, new_owner):
 
 def change_owner_recursively(service, item, new_owner, parents=list()):
     result = change_item_owner(service, item, new_owner)
+    x = '\u2717'
     if result:
-        print(f" - \"{'/'.join(parents)}\"")
+        x = '\u2713'
+    print(f"{x} {' > '.join(parents)}")
     item_id = item.get('id')
     children = children = get_children(service, item_id)
     for child in children:
@@ -183,8 +185,10 @@ def change_owner_recursively(service, item, new_owner, parents=list()):
             change_owner_recursively(service, item, new_owner, parents)
         else:
             result = change_item_owner(service, item, new_owner)
+            x = '\u2717'
             if result:
-                print(f" - \"{'/'.join([*parents, item['name']])}\"")
+                x = '\u2713'
+            print(f"{x} {' > '.join([*parents, item['name']])})
 
 def list_files_recursively(service, folder_id, parents=list()):
     children = get_children(service, folder_id)
