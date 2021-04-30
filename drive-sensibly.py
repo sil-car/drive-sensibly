@@ -89,44 +89,24 @@ def get_drive_search_results(service, query, page_token=None):
             break
     return results
 
-def get_item_id(service, name_string, type='folder'):
-    """Search for "folder_string" among Drive folders and folder IDs."""
-    name_escaped = name_string.replace("'", "\\'")
-    name_escaped = name_string
-    q = f"name = '{name_escaped}'"
-    if type == 'folder':
-        q = f"name = '{name_escaped}' and mimeType = 'application/vnd.google-apps.folder'"
-    results = get_drive_search_results(service, q)
-    if len(results) > 1:
-        print(f"{len(results)} results found. Please specify which item to handle:")
-        for item in results:
-            parents = []
-            for p in item.get('parents', []):
-                parents.append(service.files().get(fileId=p).execute())
-            print(f"{item['name']}: {item['id']} in {[n['name'] for n in parents]} modified on {item['modifiedTime']}")
-        item_id = input("\nID: ")
-    if len(results) < 1:
-        item_id = None
-    else:
-        item_id = results[0]['id']
-    return item_id
-
 def get_item(service, name_string, type='folder'):
     """Search for "folder_string" among Drive folders and folder IDs."""
-    name_escaped = name_string.replace("'", "\\'")
+    name_escaped = name_string.replace("'", "\\'") # doesn't work
     name_escaped = name_string
     q = f"name = '{name_escaped}'"
     if type == 'folder':
-        q = f"name = '{name_escaped}' and mimeType = 'application/vnd.google-apps.folder'"
+        q = f"name = '{name_escaped}' and \
+            mimeType = 'application/vnd.google-apps.folder' and \
+            not trashed"
     results = get_drive_search_results(service, q)
     if len(results) > 1:
         print(f"{len(results)} results found. Please specify which item to handle:")
-        for item in results:
-            parents = []
-            for p in item.get('parents', []):
-                parents.append(service.files().get(fileId=p).execute())
-            print(f"{item['name']}: {item['id']} in {[n['name'] for n in parents]} modified on {item['modifiedTime']}")
-        item_id = input("\nID: ")
+        for i, item in enumerate(results):
+            item_tree = get_tree(service, item)
+            print(f"   {i+1}. {item_tree}")
+        item_num = int(input("\nEnter number: ").replace('.', '').strip())
+        print()
+        item_id = results[item_num-1]['id']
     if len(results) < 1:
         item_id = None
     else:
@@ -167,6 +147,14 @@ def change_item_owner(service, item, new_owner):
                 print(f"Error: {e}")
                 return False
 
+def get_tree(service, folder):
+    parents = list_parents_recursively(service, folder)
+    tree = [p['name'] for p in parents]
+    tree.insert(0, folder['name'])
+    tree.reverse()
+    tree_string = ' > '.join(tree)
+    return tree_string
+
 def change_owner_recursively(service, item, new_owner, parents=list()):
     result = change_item_owner(service, item, new_owner)
     x = '\u2717'
@@ -188,16 +176,40 @@ def change_owner_recursively(service, item, new_owner, parents=list()):
             x = '\u2717'
             if result:
                 x = '\u2713'
-            print(f"{x} {' > '.join([*parents, item['name']])})
+            print(f"{x} {' > '.join([*parents, item['name']])}")
 
-def list_files_recursively(service, folder_id, parents=list()):
-    children = get_children(service, folder_id)
+def list_parents_recursively(service, folder, parents=list()):
+    parents1_ids = folder.get('parents', [])
+    if len(parents1_ids) > 0:
+        parents1 = []
+        for p_id in parents1_ids:
+            p = service.files().get(
+                fileId=p_id,
+                #fields='id, name, mimeType, modifiedTime, ownedByMe, sharedWithMeTime, parents, permissions',
+                fields='id, name, mimeType, parents',
+            ).execute()
+            parents1.append(p)
+        # [-- Assuming 1st list item for now.
+        parents1.sort() # use oldest? is it listed first?
+        parent = parents1[0]
+        # --]
+        parents.append(parent)
+        list_parents_recursively(service, parent, parents)
+    return parents
+
+def list_files_recursively(service, folder, parents=list()):
+    children = get_children(service, folder['id'])
     for child in children:
-        item = service.files().get(fileId=child['id']).execute()
-        print('/'.join([*parents, item['name']]))
+        item = service.files().get(
+            fileId=child['id'],
+            #fields=fields='id, name, mimeType, modifiedTime, ownedByMe, sharedWithMeTime, parents, permissions',
+            fields='id, name, mimeType, parents',
+        ).execute()
+        pars = [p['name'] for p in parents]
+        print('/'.join([*pars, item['name']]))
         if item['mimeType'] == 'application/vnd.google-apps.folder':
             parents.append(item['name'])
-            list_files_recursively(service, item['id'], parents)
+            list_files_recursively(service, item, parents)
 
 def run_change_owner(service, folder_string, new_owner, show_already_owned=True):
     folder_item = get_item(service, folder_string)
@@ -205,19 +217,18 @@ def run_change_owner(service, folder_string, new_owner, show_already_owned=True)
     if not folder_id:
         print(f"Error: Folder \"{folder_string}\" not found.")
         exit(1)
-
     print(f"Changing owner of \"{folder_string}\" to \"{new_owner}\"...")
     change_owner_recursively(service, folder_item, new_owner, [folder_string])
 
 def run_list_files(service, folder_string):
-    # TODO: change to use "get_item".
-    folder_id = get_item_id(service, folder_string)
+    folder = get_item(service, folder_string)
+    folder_id = folder['id']
     if not folder_id:
         print(f"Error: Folder \"{folder_string}\" not found.")
         exit(1)
     print(f"Listing all files recursively for \"{folder_string}\"...")
-    parents = [folder_string]
-    list_files_recursively(service, folder_id, parents)
+    parents = [folder]
+    list_files_recursively(service, folder, parents)
 
 def run_move_folder(service, folder_string, destination):
     print(f"Moving \"{folder_string}\" recursively to \"{destination}\" ...")
@@ -277,4 +288,8 @@ def main():
         run_change_owner(drive_service, args.folder, args.g_account)
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\nInterrupted with Ctrl+C")
+        exit(1)
