@@ -64,7 +64,14 @@ def get_creds(client_secrets, scopes):
 
 def get_drive_service(credentials):
     drive_service = build('drive', 'v3', credentials=credentials)
-    return drive_service
+    about = drive_service.about().get(fields='*').execute()
+    user = about['user']
+    authenticated_user = about['user']['emailAddress']
+    return drive_service, authenticated_user
+
+def return_not_found(user, folder_string):
+    print(f"Error: Folder \"{folder_string}\" not found in {user}'s Drive.")
+    return 1
 
 def get_drive_search_results(service, query, page_token=None):
     """Get results of search query on specified account."""
@@ -105,14 +112,14 @@ def get_item(service, name_string, type='folder'):
     results = get_drive_search_results(service, q)
     if len(results) > 1:
         print(f"{len(results)} results found. Please specify which item to handle:")
-        for i, item in enumerate(results):
-            parents_string = get_parents_string(service, item)
+        for i, obj in enumerate(results):
+            parents_string = get_parents_string(service, obj)
             print(f"   {i+1}. {parents_string}")
-        item_num = int(input("\nEnter number: ").replace('.', '').strip())
+        obj_num = int(input("\nEnter number: ").replace('.', '').strip())
         print()
-        item_id = results[item_num-1]['id']
+        obj_id = results[obj_num-1]['id']
     if len(results) < 1:
-        item_id = None
+        item = None
     else:
         item = results[0]
     return item
@@ -217,26 +224,21 @@ def list_files_recursively(service, folder, parents=list(), tree=dict(), counts=
             list_files_recursively(service, child, new_parents, tree, counts)
     return tree, counts
 
-def run_change_owner(service, folder_string, new_owner, show_already_owned=True):
-    folder_item = get_item(service, folder_string)
-    folder_id = folder_item.get('id', None)
-    if not folder_id:
-        print(f"Error: Folder \"{folder_string}\" not found.")
-        exit(1)
-    print(f"Changing owner of \"{folder_string}\" to \"{new_owner}\"...")
-    change_owner_recursively(service, folder_item, new_owner, [folder_string])
+def run_change_owner(user, service, folder, new_owner, show_already_owned=True):
+    # Process folder.
+    folder_id = folder.get('id', None)
+    print(f"Changing owner of \"{folder['name']}\" to \"{new_owner}\"...")
+    change_owner_recursively(service, folder, new_owner, [folder['name']])
 
-def run_list_files(service, folder_string):
-    folder = get_item(service, folder_string)
-    folder_id = folder['id']
-    if not folder_id:
-        print(f"Error: Folder \"{folder_string}\" not found.")
-        exit(1)
-    print(f"Listing all files recursively for \"{folder_string}\"...")
+def run_list_files(user, service, folder):
+    # Process folder.
+    folder_id = folder.get('id', None)
+    print(f"Listing all files recursively for \"{folder['name']}\"...")
     parents = [folder]
     tree = {folder['name']: None}
     counts = {'total_ct': 1, 'folder_ct': 1}
     tree, counts = list_files_recursively(service, folder, parents, tree, counts)
+    # Print summary.
     folder_ct = counts['folder_ct']
     file_ct = counts['total_ct'] - folder_ct
     # Ensure proper plurals.
@@ -244,8 +246,8 @@ def run_list_files(service, folder_string):
     f = '' if file_ct == 1 else 's'
     print(f"\nTotal: {folder_ct} folder{d} and {file_ct} file{f}.")
 
-def run_move_folder(service, folder_string, destination):
-    print(f"Moving \"{folder_string}\" recursively to \"{destination}\" ...")
+def run_move_folder(user, service, folder, destination):
+    print(f"Moving \"{folder['name']}\" recursively to \"{destination}\" ...")
     exit()
 
 def main():
@@ -258,6 +260,7 @@ def main():
     )
     parser.add_argument(
         "folder",
+        nargs='?',
         help="The Drive folder on which the action will be performed.",
     )
     group = parser.add_mutually_exclusive_group()
@@ -291,15 +294,73 @@ def main():
     else:
         # Always get new credentials in production mode.
         credentials = get_creds(CLIENT_SECRETS, OAUTH2_SCOPE)
-    drive_service = get_drive_service(credentials)
+    drive_service, auth_user = get_drive_service(credentials)
 
     # Parse remaining arguments and options.
-    if args.list:
-        run_list_files(drive_service, args.folder)
-    elif args.DEST:
-        run_move_folder(drive_service, args.folder, args.DEST)
-    elif args.g_account:
-        run_change_owner(drive_service, args.folder, args.g_account)
+    list_files = args.list
+    folder_string = args.folder
+    new_owner = args.g_account
+    destination = args.DEST
+    folder = None
+    default_args = [auth_user, drive_service, folder]
+    actions = {
+        1: {'cmd': run_list_files, 'args': [*default_args]},
+        2: {'cmd': run_change_owner, 'args': [*default_args, new_owner]},
+        3: {'cmd': run_move_folder, 'args': [*default_args, destination]},
+    }
+    choice = 0
+    if not any([list_files, new_owner, destination]):
+        # Enter interactive mode.
+        print(f"What do you want to do for {auth_user}?")
+        options = [
+            "   1. List folder contents recursively.",
+            "   2. Change folder ownership recursively.",
+            "   3. Move folder recursively to a Shared Drive. (not available)",
+            "   4. Quit.",
+        ]
+        print('\n'.join(options))
+        print()
+        while choice not in actions.keys():
+            choice = int(input("Choice: ").strip().replace('.', ''))
+
+        # Get additional input, if needed.
+        if choice == 2:
+            while not new_owner:
+                new_owner = input("Enter account name for new owner (user_name@sil.org): ")
+                # TODO: Test that new_owner is valid?
+            actions[choice]['args'][3] = new_owner
+
+        elif choice == 3:
+            while not destination:
+                destination = input("Enter Shared Drive location to move folder to: ")
+                # TODO: Test that destination is valid?
+            actions[choice]['args'][3] = destination
+
+        elif choice == 4:
+            exit()
+
+    elif list_files:
+        choice = 1
+    elif new_owner:
+        choice = 2
+    elif destination:
+        choice = 3
+
+    # Ensure valid folder to handle.
+    while not folder:
+        if not folder_string:
+            folder_string = input(f"Enter folder name for {auth_user}: ").strip()
+        # Search for folder.
+        folder = get_item(drive_service, folder_string)
+        if not folder:
+            return_not_found(auth_user, folder_string)
+            folder_string = None
+
+    # Set folder item.
+    actions[choice]['args'][2] = folder
+    # Run script.
+    actions[choice]['cmd'](*actions[choice]['args'])
+
 
 if __name__ == '__main__':
     try:
