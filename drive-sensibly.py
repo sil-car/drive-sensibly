@@ -197,19 +197,25 @@ def list_parents_recursively(service, folder, parents=list()):
         list_parents_recursively(service, parent, parents)
     return parents
 
-def list_files_recursively(service, folder, parents=list()):
+def list_files_recursively(service, folder, parents=list(), tree=dict(), counts=dict()):
     children = get_children(service, folder['id'])
     for child in children:
-        item = service.files().get(
-            fileId=child['id'],
-            #fields=fields='id, name, mimeType, modifiedTime, ownedByMe, sharedWithMeTime, parents, permissions',
-            fields='id, name, mimeType, parents',
-        ).execute()
+        child_name = child['name']
+        counts['total_ct'] += 1
+        # [-- Working on building a tree...
+        # d = parents[:]
+        # here = tree.copy()
+        # while d:
+        #     here = here[d.pop()]
+        # print(here)
+        # --]
         pars = [p['name'] for p in parents]
-        print('/'.join([*pars, item['name']]))
-        if item['mimeType'] == 'application/vnd.google-apps.folder':
-            parents.append(item['name'])
-            list_files_recursively(service, item, parents)
+        print(f"{' > '.join([*pars, child_name])}")
+        if child['mimeType'] == 'application/vnd.google-apps.folder':
+            new_parents = [*parents, child]
+            counts['folder_ct'] += 1
+            list_files_recursively(service, child, new_parents, tree, counts)
+    return tree, counts
 
 def run_change_owner(service, folder_string, new_owner, show_already_owned=True):
     folder_item = get_item(service, folder_string)
@@ -228,7 +234,15 @@ def run_list_files(service, folder_string):
         exit(1)
     print(f"Listing all files recursively for \"{folder_string}\"...")
     parents = [folder]
-    list_files_recursively(service, folder, parents)
+    tree = {folder['name']: None}
+    counts = {'total_ct': 1, 'folder_ct': 1}
+    tree, counts = list_files_recursively(service, folder, parents, tree, counts)
+    folder_ct = counts['folder_ct']
+    file_ct = counts['total_ct'] - folder_ct
+    # Ensure proper plurals.
+    d = '' if folder_ct == 1 else 's'
+    f = '' if file_ct == 1 else 's'
+    print(f"\nTotal: {folder_ct} folder{d} and {file_ct} file{f}.")
 
 def run_move_folder(service, folder_string, destination):
     print(f"Moving \"{folder_string}\" recursively to \"{destination}\" ...")
