@@ -97,20 +97,19 @@ def move_item_to_shared_drive(user, service, item, new_parents):
         exit(1)
     return result
 
-def move_items_recursively(user, service, item, destination, folders_list, dest_drive):
+def move_items_recursively(user, service, item, destination, dest_drive):
     if not dutils.item_is_folder(item):
         # Move file.
         new_parent = destination.get('id')
         new_id = move_item_to_shared_drive(user, service, item, new_parent)
         if new_id:
             new_item = dutils.get_drive_item(service, new_id.get('id'))
+        # Can't just use the returned item from "move" b/c it's lacking parent info.
+        # new_item = move_item_to_shared_drive(user, service, item, new_parent)
         show_result(service, new_item, item)
     else:
         # Move folder and children.
-        # Add item to folder_list to be removed later.
-        folders_list.append(item)
-        # Check to see if folder exists in destination.
-        # new_parent = get_shared_drive_item(service, dest_drive.get('id'), name=item.get('name'))
+        #   Check to see if folder exists in destination.
         new_parent = dutils.find_drive_item(service, name_string=item.get('name'), shared_drive=dest_drive)
         if not new_parent:
             # Set the new folder's metadata.
@@ -129,23 +128,27 @@ def move_items_recursively(user, service, item, destination, folders_list, dest_
         # Move children to new folder.
         children = dutils.get_children(service, item['id'])
         for child in children:
-            move_items_recursively(user, service, child, new_parent, folders_list, dest_drive)
+            move_items_recursively(user, service, child, new_parent, dest_drive)
         # Remove empty folder.
         remove_drive_item(service, item)
 
 def run_move_folder(user, service, folder, destination_string):
     # Ensure valid destination drive and folder.
+    path_parts = destination_string.split('>')
     dest_drive_string = destination_string.split('>')[0].strip()
-    parent_folder_string = destination_string.split('>')[-1].strip()
     dest_drive = get_shared_drive(service, name_string=dest_drive_string)
+    parent_folder_string = destination_string.split('>')[-1].strip()
+
 
     ready = False
     error = f"Error: Shared Drive \"{dest_drive_string}\" not found."
     if dest_drive:
         error = f"Error: Shared Drive \"{dest_drive['name']}\" does not contain a folder called \"{parent_folder_string}\"."
-        # parent_folder = get_shared_drive_item(service, dest_drive['id'], name=parent_folder_string)
-        parent_folder = dutils.find_drive_item(service, name_string=parent_folder_string, shared_drive=dest_drive)
-        print(parent_folder)
+        if len(path_parts) == 1:
+            # Shared Drive root given with no subfolder.
+            parent_folder = dutils.get_drive_item(service, dest_drive.get('id'))
+        else:
+            parent_folder = dutils.find_drive_item(service, name_string=parent_folder_string, shared_drive=dest_drive)
         if parent_folder:
             # Check if parent_folder is writable by user.
             dest_caps = parent_folder.get('capabilities', None)
@@ -158,5 +161,4 @@ def run_move_folder(user, service, folder, destination_string):
         return 1
 
     print(f"Moving \"{folder['name']}\" recursively to \"{parent_folder['name']}\" ...")
-    folders_to_remove = [folder]
-    move_items_recursively(user, service, folder, parent_folder, folders_to_remove, dest_drive)
+    move_items_recursively(user, service, folder, parent_folder, dest_drive)
