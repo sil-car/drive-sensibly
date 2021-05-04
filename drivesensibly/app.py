@@ -181,7 +181,7 @@ def main():
     # Ensure valid folder to handle.
     while not folder:
         if not folder_string:
-            folder_string = input(f"Enter folder name for {auth_user}: ").strip()
+            folder_string = input(f"Enter folder name for {auth_user}: ").strip('"')
         # Search for folder.
         folder = dutils.find_drive_item(drive_service, name_string=folder_string, type='folder')
         if not folder:
