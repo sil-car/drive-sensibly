@@ -109,7 +109,6 @@ def get_shared_drive_search_results(service, shared_drive_id, query, page_token=
                 fields=fields,
                 pageToken=page_token
             ).execute()
-            print(response)
         except Exception as e:
             print(f"Error: {e}")
             exit(1)
@@ -127,8 +126,7 @@ def get_children(service, folder_id):
 
 def find_drive_item(service, name_string='', type='folder', shared_drive=None):
     """Search for "folder_string" among Drive folders and folder IDs."""
-    name_escaped = name_string.replace("'", "\\'") # doesn't work
-    name_escaped = name_string
+    name_escaped = name_string.replace("'", "\\'")
     q = f"name = '{name_escaped}' and not trashed"
     if type == 'folder' and shared_drive:
         results = get_shared_drive_search_results(service, shared_drive.get('id'), q)
