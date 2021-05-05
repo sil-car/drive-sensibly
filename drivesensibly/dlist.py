@@ -17,7 +17,7 @@ def list_parents_recursively(service, item, parents):
                 exit(1)
             parents1.append(p)
         # [-- Assuming 1st list item for now.
-        parents1.sort() # use oldest? is it listed first?
+        # parents1.sort() # can't sort list of dictionaries
         parent = parents1[0]
         # --]
         parents.append(parent)

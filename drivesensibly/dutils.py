@@ -34,12 +34,13 @@ def get_parents_string(service, folder):
 
 def choose_item(service, results):
     if len(results) > 1:
-        print(f"{len(results)} results found. Please specify which item to handle:")
+        eprint(f"{len(results)} results found. Please specify which item to handle:")
         for i, obj in enumerate(results):
             parents_string = get_parents_string(service, obj)
             item_path = ' > '.join([parents_string, obj.get('name')])
-            print(f"   {i+1}. {item_path}")
-        obj_num = int(input("\nEnter number: ").replace('.', '').strip())
+            eprint(f"   {i+1}. {item_path}")
+        eprint(f"\nEnter number:")
+        obj_num = int(input().replace('.', '').strip())
         print()
         item = results[obj_num-1]
     elif len(results) < 1:
@@ -162,13 +163,12 @@ def get_all_drive_search_results(service, query, page_token=None):
         try:
             response = service.files().list(
                 q=query,
-                # Limited to 'drive' to speed up search.
                 corpora='allDrives',
                 spaces='drive',
                 supportsAllDrives=True,
                 includeItemsFromAllDrives=True,
                 fields=fields,
-                pageToken=page_token
+                pageToken=page_token,
             ).execute()
         except Exception as e:
             print(f"Error: {e}")
@@ -191,18 +191,31 @@ def get_children(service, folder_id, shared_drive=None):
 def find_drive_item(service, name_string='', type='folder', shared_drive=None, all_drives=False):
     """Search for "folder_string" among Drive folders and folder IDs."""
     name_escaped = name_string.replace("'", "\\'")
-    q = f"name = '{name_escaped}' and not trashed"
-    if type == 'folder' and shared_drive:
-        results = get_shared_drive_search_results(service, shared_drive.get('id'), q)
-    elif type == 'folder' and all_drives:
+    if type == 'folder':
         q = f"name = '{name_escaped}' and not trashed and \
             mimeType = 'application/vnd.google-apps.folder'"
-        results = get_all_drive_search_results(service, q)
-    elif type == 'folder':
-        q = f"name = '{name_escaped}' and not trashed and \
-            mimeType = 'application/vnd.google-apps.folder'"
-        results = get_user_drive_search_results(service, q)
+        if shared_drive:
+            results = get_shared_drive_search_results(service, shared_drive.get('id'), q)
+        elif all_drives:
+            results = get_all_drive_search_results(service, q)
+        else:
+            results = get_user_drive_search_results(service, q)
     else:
+        q = f"name = '{name_escaped}' and not trashed"
         results = get_user_drive_search_results(service, q)
+
+    # if type == 'folder' and shared_drive:
+    #     results = get_shared_drive_search_results(service, shared_drive.get('id'), q)
+    # elif type == 'folder' and all_drives:
+    #     q = f"name = '{name_escaped}' and not trashed and \
+    #         mimeType = 'application/vnd.google-apps.folder'"
+    #     results = get_all_drive_search_results(service, q)
+    # elif type == 'folder':
+    #     q = f"name = '{name_escaped}' and not trashed and \
+    #         mimeType = 'application/vnd.google-apps.folder'"
+    #     results = get_user_drive_search_results(service, q)
+    # else:
+    #     results = get_user_drive_search_results(service, q)
+
     item = choose_item(service, results)
     return item

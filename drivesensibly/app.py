@@ -27,8 +27,9 @@ def get_dev_creds(client_secrets, scopes):
     # The file token.pickle stores the user's access and refresh tokens, and is
     # created automatically when the authorization flow completes for the first
     # time.
-    if Path('token.pickle').is_file():
-        with open('token.pickle', 'rb') as token:
+    token = Path(__file__).parents[1] / 'token.pickle'
+    if token.is_file():
+        with open(token, 'rb') as token:
             creds = pickle.load(token)
 
     # If there are no (valid) credentials available, let the user log in.
@@ -186,6 +187,8 @@ def main():
     while not folder:
         if not folder_string:
             folder_string = input(f"Enter folder name for {auth_user}: ").strip('"')
+        # Check just the last element if full path is given.
+        folder_string = folder_string.split('>')[-1].strip()
         # Search for folder.
         if list_files:
             # Search user drive and shared drives.
@@ -207,5 +210,5 @@ if __name__ == '__main__':
     try:
         main()
     except KeyboardInterrupt:
-        print("\nInterrupted with Ctrl+C")
+        dutils.eprint("\nInterrupted with Ctrl+C")
         exit(1)
