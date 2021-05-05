@@ -1,5 +1,10 @@
+import sys
+
 from dlist import list_parents_recursively
 
+
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
 
 def item_is_folder(item):
     if item.get('mimeType', None) == 'application/vnd.google-apps.folder':
@@ -59,6 +64,32 @@ def get_drive_item(service, item_id, page_token=None):
         print(f"Error: {e}")
     return item
 
+def get_shared_drive_list(service, name, page_token=None):
+    """Get results of search query on specified account."""
+    all_results = []
+    while True:
+        try:
+            response = service.drives().list(pageToken=page_token).execute()
+        except Exception as e:
+            print(f"Error: {e}")
+            exit(1)
+        for item in response.get('drives', []):
+            all_results.append(item)
+        page_token = response.get('nextPageToken', None)
+        if page_token is None:
+            break
+    return all_results
+
+def get_shared_drive(service, name_string=''):
+    """Search for "folder_string" among Drive folders and folder IDs."""
+    all_results = get_shared_drive_list(service, name_string)
+    results = []
+    for r in all_results:
+        if r['name'] == name_string:
+            results.append(r)
+    item = choose_item(service, results)
+    return item
+
 def get_user_drive_search_results(service, query, page_token=None):
     """Get results of search query on specified account."""
     # Get all useful fields at one time to minimize network traffic.
@@ -92,7 +123,7 @@ def get_shared_drive_search_results(service, shared_drive_id, query, page_token=
     """Get results of search query on specified account."""
     # Get all useful fields at one time to minimize network traffic.
     fields = '\
-        nextPageToken, files(id, name, mimeType, modifiedTime, ownedByMe, \
+        nextPageToken, files(id, name, driveId, mimeType, modifiedTime, ownedByMe, \
         sharedWithMeTime, owners, parents, permissions, capabilities)\
     '
     results = []
@@ -119,18 +150,55 @@ def get_shared_drive_search_results(service, shared_drive_id, query, page_token=
             break
     return results
 
-def get_children(service, folder_id):
+def get_all_drive_search_results(service, query, page_token=None):
+    """Get results of search query on specified account."""
+    # Get all useful fields at one time to minimize network traffic.
+    fields = '\
+        nextPageToken, files(id, name, driveId, mimeType, modifiedTime, ownedByMe, \
+        sharedWithMeTime, owners, parents, permissions, capabilities)\
+    '
+    results = []
+    while True:
+        try:
+            response = service.files().list(
+                q=query,
+                # Limited to 'drive' to speed up search.
+                corpora='allDrives',
+                spaces='drive',
+                supportsAllDrives=True,
+                includeItemsFromAllDrives=True,
+                fields=fields,
+                pageToken=page_token
+            ).execute()
+        except Exception as e:
+            print(f"Error: {e}")
+            exit(1)
+        for item in response.get('files', []):
+            results.append(item)
+        page_token = response.get('nextPageToken', None)
+        if page_token is None:
+            break
+    return results
+
+def get_children(service, folder_id, shared_drive=None):
     query = f"'{folder_id}' in parents"
-    children = get_user_drive_search_results(service, query)
+    if not shared_drive:
+        children = get_user_drive_search_results(service, query)
+    else:
+        children = get_shared_drive_search_results(service, shared_drive.get('id'), query)
     return children
 
-def find_drive_item(service, name_string='', type='folder', shared_drive=None):
+def find_drive_item(service, name_string='', type='folder', shared_drive=None, all_drives=False):
     """Search for "folder_string" among Drive folders and folder IDs."""
     name_escaped = name_string.replace("'", "\\'")
     q = f"name = '{name_escaped}' and not trashed"
     if type == 'folder' and shared_drive:
         results = get_shared_drive_search_results(service, shared_drive.get('id'), q)
-    elif type == 'folder' and not shared_drive:
+    elif type == 'folder' and all_drives:
+        q = f"name = '{name_escaped}' and not trashed and \
+            mimeType = 'application/vnd.google-apps.folder'"
+        results = get_all_drive_search_results(service, q)
+    elif type == 'folder':
         q = f"name = '{name_escaped}' and not trashed and \
             mimeType = 'application/vnd.google-apps.folder'"
         results = get_user_drive_search_results(service, q)

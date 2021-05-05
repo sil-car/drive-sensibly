@@ -187,7 +187,12 @@ def main():
         if not folder_string:
             folder_string = input(f"Enter folder name for {auth_user}: ").strip('"')
         # Search for folder.
-        folder = dutils.find_drive_item(drive_service, name_string=folder_string, type='folder')
+        if list_files:
+            # Search user drive and shared drives.
+            folder = dutils.find_drive_item(drive_service, name_string=folder_string, all_drives=True)
+        else:
+            # Only search user drive.
+            folder = dutils.find_drive_item(drive_service, name_string=folder_string)
         if not folder:
             return_not_found(auth_user, folder_string)
             folder_string = None

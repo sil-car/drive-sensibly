@@ -27,9 +27,16 @@ def list_parents_recursively(service, item, parents):
 def list_files_recursively(service, folder, parents=list(), counts=dict()):
     pars = [p['name'] for p in parents]
     print(f"{' > '.join([*pars])}")
-    children = dutils.get_children(service, folder['id'])
+
+    # Get folder children.
+    if folder.get('driveId'):
+        shared_drive = dutils.get_drive_item(service, folder.get('driveId'))
+        children = dutils.get_children(service, folder.get('id'), shared_drive=shared_drive)
+    else:
+        children = dutils.get_children(service, folder.get('id'))
+
     for child in children:
-        child_name = child['name']
+        child_name = child.get('name')
         counts['total_ct'] += 1
         if dutils.item_is_folder(child):
             new_parents = [*parents, child]
@@ -43,7 +50,7 @@ def list_files_recursively(service, folder, parents=list(), counts=dict()):
 def run_list_files(user, service, folder):
     # Process folder.
     folder_id = folder.get('id', None)
-    print(f"Listing all files recursively for \"{folder.get('name')}\"...")
+    dutils.eprint(f"Listing all files recursively for \"{folder.get('name')}\"...")
     parents = [folder]
     counts = {'total_ct': 1, 'folder_ct': 1}
     counts = list_files_recursively(service, folder, parents, counts)
@@ -53,4 +60,4 @@ def run_list_files(user, service, folder):
     # Ensure proper plurals.
     d = '' if folder_ct == 1 else 's'
     f = '' if file_ct == 1 else 's'
-    print(f"\nTotal: {folder_ct} folder{d} and {file_ct} file{f}.")
+    dutils.eprint(f"\nTotal: {folder_ct} folder{d} and {file_ct} file{f}.")
