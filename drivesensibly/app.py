@@ -63,7 +63,11 @@ def get_creds(client_secrets, scopes):
     print(f'\nUse this link for authorization: {auth_url}')
     code = input('\nAuth. code: ').strip()
     print()
-    flow.fetch_token(code=code)
+    try:
+        flow.fetch_token(code=code)
+    except Exception as e:
+        print(f"Error: {e}")
+        exit(1)
     creds = flow.credentials
     return creds
 
