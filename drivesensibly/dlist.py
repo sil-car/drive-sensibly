@@ -26,7 +26,7 @@ def list_parents_recursively(service, item, parents):
 
 def list_files_recursively(user, service, folder, parents=list(), counts=dict(), details=False):
     pars = [p['name'] for p in parents]
-    details_text = dutils.get_owner_text(details, folder, user)
+    details_text = dutils.get_details_text(details, folder, user)
     print(f"{' > '.join([*pars])}{details_text}")
 
     # Get folder children.
@@ -45,7 +45,7 @@ def list_files_recursively(user, service, folder, parents=list(), counts=dict(),
             list_files_recursively(user, service, child, new_parents, counts, details=details)
         else:
             pars = [p['name'] for p in parents]
-            details_text = dutils.get_owner_text(details, child, user)
+            details_text = dutils.get_details_text(details, child, user)
             print(f"{' > '.join([*pars, child_name])}{details_text}")
     return counts
 

@@ -201,7 +201,7 @@ def main():
         # Check just the last element if full path is given.
         folder_string = folder_string.split('>')[-1].strip()
         # Search for folder.
-        if list_files:
+        if list_files or list_details:
             # Search user drive and shared drives.
             folder = dutils.find_drive_item(drive_service, name_string=folder_string, all_drives=True)
         else:
