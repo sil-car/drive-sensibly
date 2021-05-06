@@ -5,5 +5,7 @@
   - "folder" > "subfolder" > "Item B"
   - rather than:
   - "folder" (which would include ___all___ items therein)
-  - app.py -d destination -i input-file
-- consider a "long-listing" option that shows ownership and other (?) details.
+  - It would work like this:
+    ```shell
+    app.py -d destination -i input-file
+    ```
