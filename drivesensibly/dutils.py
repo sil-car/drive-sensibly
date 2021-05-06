@@ -6,6 +6,14 @@ from dlist import list_parents_recursively
 def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
+def get_owner_text(details, item, user):
+    owner_text = ''
+    if details:
+        owner_email = item.get('owners')[0].get('emailAddress')
+        if owner_email != user:
+            owner_text = f"\t({owner_email})"
+    return owner_text
+
 def item_is_folder(item):
     if item.get('mimeType', None) == 'application/vnd.google-apps.folder':
         return True

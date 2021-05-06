@@ -24,9 +24,10 @@ def list_parents_recursively(service, item, parents):
         list_parents_recursively(service, parent, parents)
     return parents
 
-def list_files_recursively(service, folder, parents=list(), counts=dict()):
+def list_files_recursively(user, service, folder, parents=list(), counts=dict(), details=False):
     pars = [p['name'] for p in parents]
-    print(f"{' > '.join([*pars])}")
+    details_text = dutils.get_owner_text(details, folder, user)
+    print(f"{' > '.join([*pars])}{details_text}")
 
     # Get folder children.
     if folder.get('driveId'):
@@ -41,19 +42,20 @@ def list_files_recursively(service, folder, parents=list(), counts=dict()):
         if dutils.item_is_folder(child):
             new_parents = [*parents, child]
             counts['folder_ct'] += 1
-            list_files_recursively(service, child, new_parents, counts)
+            list_files_recursively(user, service, child, new_parents, counts, details=details)
         else:
             pars = [p['name'] for p in parents]
-            print(f"{' > '.join([*pars, child_name])}")
+            details_text = dutils.get_owner_text(details, child, user)
+            print(f"{' > '.join([*pars, child_name])}{details_text}")
     return counts
 
-def run_list_files(user, service, folder):
+def run_list_files(user, service, folder, details=False):
     # Process folder.
     folder_id = folder.get('id', None)
     dutils.eprint(f"Listing all files recursively for \"{folder.get('name')}\"...")
     parents = [folder]
     counts = {'total_ct': 1, 'folder_ct': 1}
-    counts = list_files_recursively(service, folder, parents, counts)
+    counts = list_files_recursively(user, service, folder, parents, counts, details=details)
     # Print summary.
     folder_ct = counts['folder_ct']
     file_ct = counts['total_ct'] - folder_ct

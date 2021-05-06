@@ -112,6 +112,11 @@ def main():
         help="list the folder's files recursively",
     )
     group.add_argument(
+        "-L", "--list-details",
+        action="store_true",
+        help="list the folder's file names and other details"
+    )
+    group.add_argument(
         "-o", "--chown",
         dest="g_account",
         metavar="user_name@sil.org",
@@ -135,6 +140,7 @@ def main():
 
     # Parse remaining arguments and options.
     list_files = args.list
+    list_details = args.list_details
     folder_string = args.folder
     new_owner = args.g_account
     destination = args.DEST
@@ -142,18 +148,21 @@ def main():
     default_args = [auth_user, drive_service, folder]
     actions = {
         1: {'cmd': dlist.run_list_files, 'args': [*default_args]},
-        2: {'cmd': dchown.run_change_owner, 'args': [*default_args, new_owner]},
-        3: {'cmd': dmove.run_move_folder, 'args': [*default_args, destination]},
+        2: {'cmd': dlist.run_list_files, 'args': [*default_args, True]},
+        3: {'cmd': dchown.run_change_owner, 'args': [*default_args, new_owner]},
+        4: {'cmd': dmove.run_move_folder, 'args': [*default_args, destination]},
+        5: {'cmd': exit, 'args': []},
     }
     choice = 0
-    if not any([list_files, new_owner, destination]):
+    if not any([list_files, list_details, new_owner, destination]):
         # Enter interactive mode.
         print(f"What do you want to do for {auth_user}?")
         options = [
             "   1. List folder contents recursively.",
-            "   2. Change folder ownership recursively.",
-            "   3. Move folder recursively to a Shared Drive. (not available)",
-            "   4. Quit.",
+            "   2. List folder content details recursively.",
+            "   3. Change folder ownership recursively.",
+            "   4. Move folder recursively to a Shared Drive. (not available)",
+            "   5. Quit.",
         ]
         print('\n'.join(options))
         print()
@@ -161,27 +170,29 @@ def main():
             choice = int(input("Choice: ").strip().replace('.', ''))
 
         # Get additional input, if needed.
-        if choice == 2:
+        if choice == 3:
             while not new_owner:
                 new_owner = input("Enter account name for new owner (user_name@sil.org): ")
                 # TODO: Test that new_owner is valid?
             actions[choice]['args'][3] = new_owner
 
-        elif choice == 3:
+        elif choice == 4:
             while not destination:
                 destination = input("Enter Shared Drive location to move folder to: ")
                 # TODO: Test that destination is valid?
             actions[choice]['args'][3] = destination
 
-        elif choice == 4:
+        elif choice == 5:
             exit()
 
     elif list_files:
         choice = 1
-    elif new_owner:
+    elif list_details:
         choice = 2
-    elif destination:
+    elif new_owner:
         choice = 3
+    elif destination:
+        choice = 4
 
     # Ensure valid folder to handle.
     while not folder:
