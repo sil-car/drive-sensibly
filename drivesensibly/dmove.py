@@ -145,3 +145,6 @@ def run_move_folder(user, service, folder, destination_string):
 
     print(f"Moving \"{folder['name']}\" recursively to \"{parent_folder.get('name')}\" ({parent_folder.get('id')})...")
     move_items_recursively(service, folder, parent_folder, dest_drive)
+
+def run_move_filelist(user, service, input_file, destination_string):
+    pass

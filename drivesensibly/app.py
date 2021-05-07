@@ -106,6 +106,12 @@ def main():
         dest="DEST",
         help="move the folder to given Shared drive",
     )
+    parser.add_argument(
+        "-i", "--infile",
+        action="store_true",
+        #help="move files listed in given input file; use with -d",
+        help=argparse.SUPPRESS,
+    )
     group.add_argument(
         "-l", "--list",
         action="store_true",
@@ -142,6 +148,7 @@ def main():
     list_files = args.list
     list_details = args.list_details
     folder_string = args.folder
+    filelist = args.infile
     new_owner = args.g_account
     destination = args.DEST
     folder = None
@@ -151,9 +158,10 @@ def main():
         2: {'cmd': dlist.run_list_files, 'args': [*default_args, True]},
         3: {'cmd': dchown.run_change_owner, 'args': [*default_args, new_owner]},
         4: {'cmd': dmove.run_move_folder, 'args': [*default_args, destination]},
-        5: {'cmd': exit, 'args': []},
+        5: {'cmd': dmove.run_move_filelist, 'args': [*default_args, destination]},
+        0: {'cmd': exit, 'args': []},
     }
-    choice = 0
+    choice = -1
     if not any([list_files, list_details, new_owner, destination]):
         # Enter interactive mode.
         print(f"What do you want to do for {auth_user}?")
@@ -161,8 +169,9 @@ def main():
             "   1. List folder contents recursively.",
             "   2. List folder content details recursively.",
             "   3. Change folder ownership recursively.",
-            "   4. Move folder recursively to a Shared Drive. (not available)",
-            "   5. Quit.",
+            "   4. Move folder recursively to a Shared Drive.",
+            "   5. Move files to a Shared Drive from given input file list. (not implemented)",
+            "   0. Quit.",
         ]
         print('\n'.join(options))
         print()
@@ -170,21 +179,31 @@ def main():
             choice = int(input("Choice: ").strip().replace('.', ''))
 
         # Get additional input, if needed.
-        if choice == 3:
+        if choice == 1:
+            list_files = True
+
+        elif choice == 2:
+            list_details == True
+
+        elif choice == 3:
             while not new_owner:
                 new_owner = input("Enter account name for new owner (user_name@sil.org): ")
                 # TODO: Test that new_owner is valid?
             actions[choice]['args'][3] = new_owner
 
-        elif choice == 4:
+        # Temporary catch for unimplemented choice #5.
+        elif choice == 5:
+            dutils.eprint("Sorry, this choice is not yet implemented.")
+            exit(1)
+
+        elif choice in [4, 5]:
             while not destination:
-                destination = input("Enter Shared Drive location to move folder to: ")
+                content = 'files' if choice == 5 else 'folder'
+                destination = input(f"Enter Shared Drive location to move {content} to: ")
                 # TODO: Test that destination is valid?
             actions[choice]['args'][3] = destination
 
-        elif choice == 5:
-            exit()
-
+    # Define choice based on command options and arguments.
     elif list_files:
         choice = 1
     elif list_details:
@@ -193,26 +212,39 @@ def main():
         choice = 3
     elif destination:
         choice = 4
+    if filelist: # overrides choice 4
+        choice = 5
+
+    if choice == 0:
+        # User chose 0, or choice never got defined.
+        exit(0)
 
     # Ensure valid folder to handle.
-    while not folder:
-        if not folder_string:
-            folder_string = input(f"Enter folder name for {auth_user}: ").strip('"')
-        # Check just the last element if full path is given.
-        folder_string = folder_string.split('>')[-1].strip()
-        # Search for folder.
-        if list_files or list_details:
-            # Search user drive and shared drives.
-            folder = dutils.find_drive_item(drive_service, name_string=folder_string, all_drives=True)
-        else:
-            # Only search user drive.
-            folder = dutils.find_drive_item(drive_service, name_string=folder_string)
-        if not folder:
-            return_not_found(auth_user, folder_string)
-            folder_string = None
+    if not filelist:
+        while not folder:
+            if not folder_string:
+                folder_string = input(f"Enter folder name for {auth_user}: ").strip('"')
+            # Check just the last element if full path is given.
+            folder_string = folder_string.split('>')[-1].strip()
+            # Search for folder.
+            if list_files or list_details:
+                # Search user drive and shared drives.
+                folder = dutils.find_drive_item(drive_service, name_string=folder_string, all_drives=True)
+            else:
+                # Only search user drive.
+                folder = dutils.find_drive_item(drive_service, name_string=folder_string)
+            if not folder:
+                return_not_found(auth_user, folder_string)
+                folder_string = None
 
-    # Set folder item.
-    actions[choice]['args'][2] = folder
+        # Set folder item.
+        actions[choice]['args'][2] = folder
+
+    else:
+        # Input file name is validated later.
+        input_file = folder_string
+        actions[choice]['args'][2] = input_file
+
     # Run script.
     actions[choice]['cmd'](*actions[choice]['args'])
 
