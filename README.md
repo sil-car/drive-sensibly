@@ -9,7 +9,7 @@ This is not available as an installable package, but you can do one of the follo
 - Run it yourself by:
   - cloning the repo
   - installing the pip3 requirements
-  - creating your own Google Developers API project
+  - creating your own Google API project
   - adding the resulting "client_secrets.json" to the top level of the repo
   - run it with `$ python3 drivesensibly/app.py [--help]`
 - Request SIL-CAR to run it on your behalf using the contact form on the repo's home page: https://github.com/sil-car/home.
