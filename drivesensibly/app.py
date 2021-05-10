@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 
 import argparse
+import logging
 import pickle
 
 from pathlib import Path
 
-# import googleapiclient.http
 import googleapiclient.errors
 
 from googleapiclient.discovery import build
@@ -14,6 +14,7 @@ from google.auth.transport.requests import Request
 
 import dchown
 import dlist
+import dlog
 import dmove
 import dutils
 
@@ -35,7 +36,10 @@ def get_dev_creds(client_secrets, scopes):
     # If there are no (valid) credentials available, let the user log in.
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
+            try:
+                creds.refresh(Request())
+            except Exception as e:
+                logging.error(e)
         else:
             flow = Flow.from_client_secrets_file(
                 client_secrets,
@@ -45,7 +49,11 @@ def get_dev_creds(client_secrets, scopes):
             auth_url, _ = flow.authorization_url(prompt='consent')
             print(f'\nUse this link for authorization: {auth_url}')
             code = input('\nAuth. code: ').strip()
-            flow.fetch_token(code=code)
+            try:
+                flow.fetch_token(code=code)
+            except Exception as e:
+                logging.error(e)
+                exit(1)
             creds = flow.credentials
 
         # Save the credentials for the next run
@@ -67,7 +75,8 @@ def get_creds(client_secrets, scopes):
     try:
         flow.fetch_token(code=code)
     except Exception as e:
-        print(f"Error: {e}")
+        # print(f"Error: {e}")
+        logging.error(e)
         exit(1)
     creds = flow.credentials
     return creds
@@ -77,7 +86,8 @@ def get_drive_service(credentials):
     try:
         about = drive_service.about().get(fields='*').execute()
     except Exception as e:
-        print(f"Error: {e}.")
+        # print(f"Error: {e}.")
+        logging.error(e)
         exit(1)
     user = about['user']
     authenticated_user = about['user']['emailAddress']
@@ -133,7 +143,16 @@ def main():
         action="store_true",
         help=argparse.SUPPRESS
     )
+    parser.add_argument(
+        "-v", "--verbose",
+        action="store_true",
+        help=argparse.SUPPRESS
+    )
     args = parser.parse_args()
+
+    # Setup logging.
+    loglevel = 'DEBUG' if args.verbose else 'INFO'
+    dlog.setup_logging(loglevel)
 
     # Retrieve appropriate credentials and drive_service.
     if args.test:
@@ -246,12 +265,17 @@ def main():
         actions[choice]['args'][2] = input_file
 
     # Run script.
+    item_id = actions[choice]['args'][2].get('id')
+    item_name = actions[choice]['args'][2].get('name')
+    logging.info(f"{actions[choice]['cmd'].__name__}, account: {auth_user}, item: \"{item_name}\" ({item_id})")
     actions[choice]['cmd'](*actions[choice]['args'])
+
 
 
 if __name__ == '__main__':
     try:
         main()
     except KeyboardInterrupt:
-        dutils.eprint("\nInterrupted with Ctrl+C")
+        # dutils.eprint("\nInterrupted with Ctrl+C")
+        logging.warning("Interrupted with Ctrl+C")
         exit(1)

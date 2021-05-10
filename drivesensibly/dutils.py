@@ -1,3 +1,4 @@
+import logging
 import sys
 
 from dlist import list_parents_recursively
@@ -42,14 +43,18 @@ def get_parents_string(service, folder):
 
 def choose_item(service, results):
     if len(results) > 1:
-        eprint(f"{len(results)} results found. Please specify which item to handle:")
+        # eprint(f"{len(results)} results found. Please specify which item to handle:")
+        logging.info(f"{len(results)} results found. Please specify which item to handle:")
         for i, obj in enumerate(results):
             parents_string = get_parents_string(service, obj)
             item_path = ' > '.join([parents_string, obj.get('name')])
-            eprint(f"   {i+1}. {item_path}")
+            # eprint(f"   {i+1}. {item_path}")
+            logging.info(f"   {i+1}. {item_path} ({obj.get('id')})")
         eprint(f"\nEnter number:")
+        # logging.info(f"\nEnter number:")
         obj_num = int(input().replace('.', '').strip())
-        print()
+        eprint()
+        # logging.info('\n')
         item = results[obj_num-1]
     elif len(results) < 1:
         item = None
@@ -80,7 +85,8 @@ def get_shared_drive_list(service, name, page_token=None):
         try:
             response = service.drives().list(pageToken=page_token).execute()
         except Exception as e:
-            print(f"Error: {e}")
+            # print(f"Error: {e}")
+            logging.error(e)
             exit(1)
         for item in response.get('drives', []):
             all_results.append(item)

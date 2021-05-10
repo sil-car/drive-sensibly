@@ -1,3 +1,5 @@
+import logging
+
 import dutils
 
 
@@ -13,7 +15,8 @@ def list_parents_recursively(service, item, parents):
                     fields='id, name, mimeType, parents',
                 ).execute()
             except Exception as e:
-                print(f"Error: {e}")
+                # print(f"Error: {e}")
+                logging.error(e)
                 exit(1)
             parents1.append(p)
         # [-- Assuming 1st list item for now.
@@ -27,7 +30,8 @@ def list_parents_recursively(service, item, parents):
 def list_files_recursively(user, service, folder, parents=list(), counts=dict(), details=False):
     pars = [p['name'] for p in parents]
     details_text = dutils.get_details_text(details, folder, user)
-    print(f"{' > '.join([*pars])}{details_text}")
+    # print(f"{' > '.join([*pars])}{details_text}")
+    logging.info(f"{' > '.join([*pars])}{details_text}")
 
     # Get folder children.
     if folder.get('driveId'):
@@ -46,13 +50,14 @@ def list_files_recursively(user, service, folder, parents=list(), counts=dict(),
         else:
             pars = [p['name'] for p in parents]
             details_text = dutils.get_details_text(details, child, user)
-            print(f"{' > '.join([*pars, child_name])}{details_text}")
+            # print(f"{' > '.join([*pars, child_name])}{details_text}")
+            logging.info(f"{' > '.join([*pars, child_name])}{details_text}")
     return counts
 
 def run_list_files(user, service, folder, details=False):
     # Process folder.
     folder_id = folder.get('id', None)
-    dutils.eprint(f"Listing all files recursively for \"{folder.get('name')}\"...")
+    # dutils.eprint(f"Listing all files recursively for \"{folder.get('name')}\"...")
     parents = [folder]
     counts = {'total_ct': 1, 'folder_ct': 1}
     counts = list_files_recursively(user, service, folder, parents, counts, details=details)
@@ -63,3 +68,4 @@ def run_list_files(user, service, folder, details=False):
     d = '' if folder_ct == 1 else 's'
     f = '' if file_ct == 1 else 's'
     dutils.eprint(f"\nTotal: {folder_ct} folder{d} and {file_ct} file{f}.")
+    # logging.warning(f"\nTotal: {folder_ct} folder{d} and {file_ct} file{f}.")
