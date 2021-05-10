@@ -9,3 +9,7 @@
     ```shell
     app.py -d destination -i input-file
     ```
+- create automatic log files for accountability & reporting
+  - [x] list, list-details
+  - [ ] chown
+  - [ ] move/dest
