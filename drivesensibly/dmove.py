@@ -1,4 +1,5 @@
 import googleapiclient.errors
+import logging
 
 import dutils
 
@@ -140,11 +141,38 @@ def run_move_folder(user, service, folder, destination_string):
                 if dest_caps.get('canAddChildren', None):
                     ready = True
     if not ready:
-        print(error)
+        logging.error(error)
         return 1
 
     print(f"Moving \"{folder['name']}\" recursively to \"{parent_folder.get('name')}\" ({parent_folder.get('id')})...")
     move_items_recursively(service, folder, parent_folder, dest_drive)
 
 def run_move_filelist(user, service, input_file, destination_string):
-    pass
+    # Validate destination drive.
+    dest_path_names = destination_string.split('>')
+    dest_drive_string = dutils.get_shared_drive_name_from_path_string(destination_string)
+    dest_drive = dutils.validate_shared_drive_destination(service, dest_drive_string, dest_path_names)
+
+    # Get filelist paths from input_file.
+    with open(input_file) as f:
+        paths = f.readlines()
+
+    for path in paths:
+        path_names = [n.strip() for n in path.split('>')]
+        logging.info(f"Checking \"{' > '.join(path_names)}\" from input file.")
+        path_items = dutils.expand_path_names_to_items(service, path_names)
+        if not path_items:
+            logging.error(f"No matching path found in {user}'s My Drive or Shared Drives.")
+            continue
+        details = [f"{i.get('name')} ({i.get('id')})" for i in path_items]
+        logging.info(f"Moving: {' > '.join(details)} to \"{destination_string}\".")
+
+        if dutils.item_is_folder(path_items[-1]):
+            # List is entirely folders.
+            #   - Create folder tree in Shared Drive of path_items.
+            pass
+        else:
+            # Last item is a file.
+            #   - Create folder tree in Shared Drive of path_items[:-1].
+            #   - Move last item into last folder.
+            pass

@@ -181,7 +181,7 @@ def main():
         0: {'cmd': exit, 'args': []},
     }
     choice = -1
-    if not any([list_files, list_details, new_owner, destination]):
+    if not any([list_files, list_details, new_owner, destination, filelist]):
         # Enter interactive mode.
         print(f"What do you want to do for {auth_user}?")
         options = [
@@ -265,8 +265,11 @@ def main():
         actions[choice]['args'][2] = input_file
 
     # Run script.
-    item_id = actions[choice]['args'][2].get('id')
-    item_name = actions[choice]['args'][2].get('name')
+    item_id = None
+    item_name = input_file
+    if type(actions[choice]['args'][2]) is dict:
+        item_id = actions[choice]['args'][2].get('id')
+        item_name = actions[choice]['args'][2].get('name')
     logging.info(f"{actions[choice]['cmd'].__name__}, account: {auth_user}, item: \"{item_name}\" ({item_id})")
     actions[choice]['cmd'](*actions[choice]['args'])
 
