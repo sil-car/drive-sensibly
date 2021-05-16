@@ -162,7 +162,7 @@ def run_move_filelist(user, service, input_file, destination_string):
         logging.info(f"Checking \"{' > '.join(path_names)}\" from input file.")
         path_items = dutils.expand_path_names_to_items(service, path_names)
         if not path_items:
-            logging.error(f"No matching path found in {user}'s My Drive or Shared Drives.")
+            logging.error(f"No single matching path found in {user}'s My Drive or Shared Drives.")
             continue
         details = [f"{i.get('name')} ({i.get('id')})" for i in path_items]
         logging.info(f"Moving: {' > '.join(details)} to \"{destination_string}\".")
