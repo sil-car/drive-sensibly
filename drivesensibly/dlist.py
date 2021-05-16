@@ -3,7 +3,9 @@ import logging
 import dutils
 
 
-def list_parents_recursively(service, item, parents):
+def list_parents_recursively(service, item, parents=None):
+    if parents is None:
+        parents = []
     parents1_ids = item.get('parents', [])
     if len(parents1_ids) > 0:
         parents1 = []
@@ -15,7 +17,6 @@ def list_parents_recursively(service, item, parents):
                     fields='id, name, mimeType, parents',
                 ).execute()
             except Exception as e:
-                # print(f"Error: {e}")
                 logging.error(e)
                 exit(1)
             parents1.append(p)
